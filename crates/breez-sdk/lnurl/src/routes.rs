@@ -4205,6 +4205,37 @@ mod tests {
         assert_eq!(spark_address_for("02abc123", spark::Network::Mainnet), None);
     }
 
+    async fn pay_response_json(pay_response_spark_address: bool) -> Value {
+        let state = handler_state(
+            repo_with_user(),
+            pay_response_spark_address,
+            std::sync::Arc::default(),
+        )
+        .await;
+        let Json(response) = LnurlServer::<MockRepository>::handle_lnurl_pay(
+            Host(HANDLER_TEST_DOMAIN.to_string()),
+            Path(HANDLER_TEST_USERNAME.to_string()),
+            Extension(state),
+        )
+        .await
+        .unwrap();
+        serde_json::to_value(&response).unwrap()
+    }
+
+    #[tokio::test]
+    async fn pay_handler_omits_spark_address_when_flag_is_off() {
+        let json = pay_response_json(false).await;
+        assert!(json.get("sparkAddress").is_none(), "{json}");
+    }
+
+    #[tokio::test]
+    async fn pay_handler_carries_spark_address_when_flag_is_on() {
+        let json = pay_response_json(true).await;
+        let expected = spark_address_for(SPARK_ADDRESS_TEST_PUBKEY, spark::Network::Regtest)
+            .expect("a valid pubkey encodes");
+        assert_eq!(json["sparkAddress"], expected, "{json}");
+    }
+
     #[test]
     fn pay_response_carries_spark_address_only_when_set() {
         let mut response = PayResponse {
