@@ -2541,7 +2541,6 @@ mod tests {
         assert_eq!(ssp.requests(), 0, "no invoice may be requested");
     }
 
-    /// Shows the counter sits on the invoice path, which the test above relies on.
     #[tokio::test]
     async fn invoice_with_a_valid_comment_requests_an_invoice() {
         let ssp = std::sync::Arc::new(CountingSspClient::default());
