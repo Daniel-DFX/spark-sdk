@@ -47,6 +47,11 @@ test: cargo-test wasm-test
 cargo-test:
 	cargo xtask test
 
+# The lnurl server's tests start their own postgres through testcontainers, so
+# they need a reachable Docker daemon.
+lnurl-test:
+	cargo test -p lnurl
+
 wasm-test: wasm-test-browser wasm-test-node wasm-test-mysql-timezone wasm-test-js-ssl-mode
 
 wasm-test-browser:
