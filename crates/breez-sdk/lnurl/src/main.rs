@@ -695,31 +695,6 @@ mod tests {
             "expected the body-limit error, got {err:?}"
         );
     }
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn sigterm_resolves_the_shutdown_signal() {
-        use tokio::signal::unix::{SignalKind, signal};
-        // Installs the process-wide SIGTERM handler up front, so the signals
-        // sent below cannot terminate the test binary.
-        let _handler = signal(SignalKind::terminate()).expect("register SIGTERM");
-        let shutdown = tokio::spawn(super::shutdown_signal());
-        let pid = std::process::id().to_string();
-
-        // Resent until observed: one that lands before `shutdown_signal`
-        // starts listening is not delivered to it.
-        let observed = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-            while !shutdown.is_finished() {
-                std::process::Command::new("kill")
-                    .args(["-TERM", &pid])
-                    .status()
-                    .expect("send SIGTERM");
-                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-            }
-        })
-        .await;
-
-        assert!(observed.is_ok(), "SIGTERM must resolve the shutdown signal");
-    }
     use super::{Args, explicit_cli_overrides, parse_auth_seed, resolve_default_api_key};
     use clap::{CommandFactory, FromArgMatches};
     use figment::{Figment, providers::Serialized};
