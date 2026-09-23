@@ -2574,7 +2574,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ready_is_unavailable_while_the_database_does_not_answer() {
+    async fn ready_is_unavailable_while_the_database_errors() {
         let repo = MockRepository {
             unreachable: true,
             ..MockRepository::default()
