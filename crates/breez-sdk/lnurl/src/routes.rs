@@ -2062,11 +2062,15 @@ mod tests {
         pending_zap_receipts: std::sync::Arc<Mutex<HashMap<String, PendingZapReceipt>>>,
         claimed_messages: ClaimedMessages,
         unreachable: bool,
+        hangs: bool,
     }
 
     #[async_trait::async_trait]
     impl LnurlRepository for MockRepository {
         async fn ping(&self) -> Result<(), LnurlRepositoryError> {
+            if self.hangs {
+                std::future::pending::<()>().await;
+            }
             if self.unreachable {
                 return Err(LnurlRepositoryError::General(anyhow::anyhow!(
                     "database unreachable"
@@ -2573,6 +2577,24 @@ mod tests {
     async fn ready_is_unavailable_while_the_database_does_not_answer() {
         let repo = MockRepository {
             unreachable: true,
+            ..MockRepository::default()
+        };
+        let state = handler_state(
+            repo,
+            false,
+            std::sync::Arc::new(CountingSspClient::default()),
+        )
+        .await;
+
+        let status = LnurlServer::<MockRepository>::ready(Extension(state)).await;
+
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[tokio::test]
+    async fn ready_is_unavailable_while_the_database_hangs() {
+        let repo = MockRepository {
+            hangs: true,
             ..MockRepository::default()
         };
         let state = handler_state(
