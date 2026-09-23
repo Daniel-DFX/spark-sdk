@@ -561,6 +561,7 @@ where
         .route("/verify/{payment_hash}", get(LnurlServer::<DB>::verify))
         .route("/webhook", post(LnurlServer::<DB>::webhook))
         .route("/health", get(|| async { StatusCode::OK }))
+        .route("/ready", get(LnurlServer::<DB>::ready))
         .layer(Extension(state))
         .layer(
             CorsLayer::new()
