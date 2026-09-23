@@ -52,7 +52,7 @@ const DEFAULT_METADATA_OFFSET: u32 = 0;
 const DEFAULT_METADATA_LIMIT: u32 = 100;
 /// Maximum size (bytes) of a nostr event JSON (zap request or zap receipt).
 const MAX_NOSTR_EVENT_SIZE: usize = 32_768;
-/// Maximum length of a sender comment (LUD-12).
+/// Maximum length of a sender comment, in characters (LUD-12).
 const MAX_COMMENT_LENGTH: usize = 255;
 /// How long the readiness probe waits for the database. Well under the pool's
 /// own wait timeout, so a hung database fails the probe instead of stalling it.
@@ -674,7 +674,7 @@ where
             .as_deref()
             .map(str::trim)
             .filter(|c| !c.is_empty());
-        if comment.is_some_and(|c| c.len() > MAX_COMMENT_LENGTH) {
+        if comment.is_some_and(|c| c.chars().count() > MAX_COMMENT_LENGTH) {
             return Err(lnurl_error("comment too long"));
         }
 
@@ -2611,6 +2611,34 @@ mod tests {
 
         assert_eq!(body["reason"], "failed to create invoice");
         assert!(ssp.requests() > 0, "an invoice must be requested");
+    }
+
+    #[tokio::test]
+    async fn invoice_counts_the_comment_limit_in_characters() {
+        // 4 bytes per character: a byte count would refuse this at a quarter
+        // of the advertised `commentAllowed`.
+        let ssp = std::sync::Arc::new(CountingSspClient::default());
+        let state = handler_state(repo_with_user(), false, ssp.clone()).await;
+
+        let (_, Json(body)) = request_invoice(state, Some("😀".repeat(MAX_COMMENT_LENGTH)))
+            .await
+            .unwrap_err();
+
+        assert_eq!(body["reason"], "failed to create invoice");
+        assert!(ssp.requests() > 0, "an invoice must be requested");
+    }
+
+    #[tokio::test]
+    async fn invoice_rejects_a_multibyte_comment_one_character_over_the_limit() {
+        let ssp = std::sync::Arc::new(CountingSspClient::default());
+        let state = handler_state(repo_with_user(), false, ssp.clone()).await;
+
+        let (_, Json(body)) = request_invoice(state, Some("ü".repeat(MAX_COMMENT_LENGTH + 1)))
+            .await
+            .unwrap_err();
+
+        assert_eq!(body["reason"], "comment too long");
+        assert_eq!(ssp.requests(), 0, "no invoice may be requested");
     }
 
     #[tokio::test]
